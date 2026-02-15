@@ -23,7 +23,7 @@ function isBookableDate(date: Date): boolean {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const diff = (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-  // Bookable when date is within the next 3 days (inclusive) and not in the past
+  
   return diff >= 0 && diff <= 3;
 }
 
@@ -60,10 +60,21 @@ export default function DashboardPage() {
   const { data: desksData, error: desksError } = useResources("Desk");
   const { data: parkingData, error: parkingError } = useResources("ParkingSpot");
 
+  
+  const hasApiError = roomsError || desksError || parkingError;
+  const has500Error = 
+    (roomsError && isApiError(roomsError) && roomsError.status === 500) ||
+    (desksError && isApiError(desksError) && desksError.status === 500) ||
+    (parkingError && isApiError(parkingError) && parkingError.status === 500);
+
   const resources400Error =
     (roomsError && isApiError(roomsError) && roomsError.status === 400) ||
     (desksError && isApiError(desksError) && desksError.status === 400) ||
     (parkingError && isApiError(parkingError) && parkingError.status === 400);
+
+  const resources500Error = has500Error || (hasApiError && !resources400Error);
+
+  const resourcesError = resources400Error || resources500Error;
 
   const resourcesData =
     selectedType === "Room"
@@ -75,7 +86,6 @@ export default function DashboardPage() {
   const resources = resourcesData?.items || [];
   const resourcesLoading = !resourcesData;
 
-  // Resource counts
   const counts = useMemo<Record<ResourceType, number>>(
     () => ({
       Room: roomsData?.totalCount ?? 0,
@@ -85,7 +95,6 @@ export default function DashboardPage() {
     [roomsData, desksData, parkingData]
   );
 
-  // Fetch user bookings
   const { data: bookingsData } = useUserBookings(user?.userId || null, 1, 100);
   const userBookings: Booking[] = bookingsData?.items || [];
 
@@ -127,7 +136,7 @@ export default function DashboardPage() {
       };
 
       es.onerror = (err) => {
-        console.info("[v0] SSE connection error, falling back to polling", err);
+        console.info(" SSE connection error, falling back to polling", err);
         setSseConnected(false);
         if (es) {
           try {
@@ -164,7 +173,6 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [mutateAvailability, bookable, resources.length, sseConnected]);
 
-  // Re-fetch availability after booking changes (with debounce to avoid loops)
   const prevBookingsCountRef = useRef<number | null>(null);
   useEffect(() => {
     const count = bookingsData?.items?.length ?? null;
@@ -217,17 +225,19 @@ export default function DashboardPage() {
         <DateNavigator selectedDate={selectedDate} onDateChange={setSelectedDate} />
 
         
-        {resourcesLoading && resources.length === 0 ? (
+        {resourcesError ? (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <p className="text-sm text-destructive">
+              {resources500Error ? "Failed to show data" : "Failed to show resources"}
+            </p>
+          </div>
+        ) : resourcesLoading && resources.length === 0 ? (
           <div className="flex flex-col gap-2 rounded-xl border bg-card p-6">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
-          </div>
-        ) : resources400Error ? (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/5 p-3">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-            <p className="text-sm text-destructive">Failed to show resources</p>
           </div>
         ) : (
           <TimeSlotGrid

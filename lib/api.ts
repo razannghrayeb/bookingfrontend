@@ -80,7 +80,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
         detail: response.statusText || "An unexpected error occurred",
       };
     }
-    console.log("[v0] API error:", response.status, errorData);
+    console.log("  API error:", response.status, errorData);
     throw errorData;
   }
 
@@ -124,34 +124,39 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 async function authFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const token = getAccessToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
+  try {
+    const token = getAccessToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  let response = await fetch(url, { ...options, headers });
-
-  // If 401, try refreshing
-  if (response.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      headers["Authorization"] = `Bearer ${getAccessToken()}`;
-      response = await fetch(url, { ...options, headers });
-    } else {
-      clearTokens();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      throw { title: "Session Expired", status: 401, detail: "Please log in again." } as ApiError;
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
-  }
 
-  return handleResponse<T>(response);
+    let response = await fetch(url, { ...options, headers });
+
+    // If 401, try refreshing
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        headers["Authorization"] = `Bearer ${getAccessToken()}`;
+        response = await fetch(url, { ...options, headers });
+      } else {
+        clearTokens();
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        throw { title: "Session Expired", status: 401, detail: "Please log in again." } as ApiError;
+      }
+    }
+
+    return handleResponse<T>(response);
+  } catch (error) {
+    console.error('AuthFetch API error:', error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -159,23 +164,33 @@ async function authFetch<T>(url: string, options: RequestInit = {}): Promise<T> 
 // ============================================
 
 export async function signup(name: string, email: string, password: string): Promise<SignUpResponse> {
-  const BASE_URL = getBaseUrl();
-  const response = await fetch(`${BASE_URL}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password }),
-  });
-  return handleResponse<SignUpResponse>(response);
+  try {
+    const BASE_URL = getBaseUrl();
+    const response = await fetch(`${BASE_URL}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+    return handleResponse<SignUpResponse>(response);
+  } catch (error) {
+    console.error('Signup API error:', error);
+    throw error;
+  }
 }
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
-  const BASE_URL = getBaseUrl();
-  const response = await fetch(`${BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  return handleResponse<AuthTokens>(response);
+  try {
+    const BASE_URL = getBaseUrl();
+    const response = await fetch(`${BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    return handleResponse<AuthTokens>(response);
+  } catch (error) {
+    console.error('Login API error:', error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -187,14 +202,19 @@ export async function getResources(
   pageNumber = 1,
   pageSize = 100
 ): Promise<PaginatedResponse<Resource>> {
-  const BASE_URL = getBaseUrl();
-  const params = new URLSearchParams();
-  if (type) params.set("type", type);
-  params.set("pageNumber", String(pageNumber));
-  params.set("pageSize", String(pageSize));
+  try {
+    const BASE_URL = getBaseUrl();
+    const params = new URLSearchParams();
+    if (type) params.set("type", type);
+    params.set("pageNumber", String(pageNumber));
+    params.set("pageSize", String(pageSize));
 
-  const response = await fetch(`${BASE_URL}/resources?${params.toString()}`);
-  return handleResponse<PaginatedResponse<Resource>>(response);
+    const response = await fetch(`${BASE_URL}/resources?${params.toString()}`);
+    return handleResponse<PaginatedResponse<Resource>>(response);
+  } catch (error) {
+    console.error('GetResources API error:', error);
+    throw error;
+  }
 }
 
 export async function getAvailableResources(
@@ -202,15 +222,20 @@ export async function getAvailableResources(
   startUtc: string,
   endUtc: string
 ): Promise<{ resources: AvailableResource[] }> {
-  const BASE_URL = getBaseUrl();
-  const params = new URLSearchParams({
-    type,
-    startUtc,
-    endUtc,
-  });
+  try {
+    const BASE_URL = getBaseUrl();
+    const params = new URLSearchParams({
+      type,
+      startUtc,
+      endUtc,
+    });
 
-  const response = await fetch(`${BASE_URL}/resources/available?${params.toString()}`);
-  return handleResponse<{ resources: AvailableResource[] }>(response);
+    const response = await fetch(`${BASE_URL}/resources/available?${params.toString()}`);
+    return handleResponse<{ resources: AvailableResource[] }>(response);
+  } catch (error) {
+    console.error('GetAvailableResources API error:', error);
+    throw error;
+  }
 }
 
 // New: fetch slot-based availability for a whole day/time range
@@ -221,22 +246,23 @@ export async function getResourcesAvailability(
   endTime: string,
   slotDuration = 60
 ): Promise<{ resources: import("./types").ResourceAvailability[] }> {
-  const BASE_URL = getBaseUrl();
-  const params = new URLSearchParams({
-    type,
-    date,
-    startTime,
-    endTime,
-    slotDuration: String(slotDuration),
-  });
+  try {
+    const BASE_URL = getBaseUrl();
+    const params = new URLSearchParams({
+      type,
+      date,
+      startTime,
+      endTime,
+      slotDuration: String(slotDuration),
+    });
 
-  const response = await fetch(`${BASE_URL}/resources/availability?${params.toString()}`);
-  return handleResponse<{ resources: import("./types").ResourceAvailability[] }>(response);
+    const response = await fetch(`${BASE_URL}/resources/availability?${params.toString()}`);
+    return handleResponse<{ resources: import("./types").ResourceAvailability[] }>(response);
+  } catch (error) {
+    console.error('GetResourcesAvailability API error:', error);
+    throw error;
+  }
 }
-
-// ============================================
-// Bookings API
-// ============================================
 
 export async function createBooking(
   resourceId: string,
@@ -244,16 +270,26 @@ export async function createBooking(
   startUtc: string,
   endUtc: string
 ): Promise<Booking> {
-  const BASE_URL = getBaseUrl();
-  return authFetch<Booking>(`${BASE_URL}/bookings`, {
-    method: "POST",
-    body: JSON.stringify({ resourceId, userId, startUtc, endUtc }),
-  });
+  try {
+    const BASE_URL = getBaseUrl();
+    return authFetch<Booking>(`${BASE_URL}/bookings`, {
+      method: "POST",
+      body: JSON.stringify({ resourceId, userId, startUtc, endUtc }),
+    });
+  } catch (error) {
+    console.error('CreateBooking API error:', error);
+    throw error;
+  }
 }
 
 export async function getBookingById(id: string): Promise<Booking> {
-  const BASE_URL = getBaseUrl();
-  return authFetch<Booking>(`${BASE_URL}/bookings/${id}`);
+  try {
+    const BASE_URL = getBaseUrl();
+    return authFetch<Booking>(`${BASE_URL}/bookings/${id}`);
+  } catch (error) {
+    console.error('GetBookingById API error:', error);
+    throw error;
+  }
 }
 
 export async function getUserBookings(
@@ -261,18 +297,28 @@ export async function getUserBookings(
   pageNumber = 1,
   pageSize = 20
 ): Promise<PaginatedResponse<Booking>> {
-  const BASE_URL = getBaseUrl();
-  const params = new URLSearchParams({
-    pageNumber: String(pageNumber),
-    pageSize: String(pageSize),
-  });
-  return authFetch<PaginatedResponse<Booking>>(`${BASE_URL}/bookings/user/${userId}?${params.toString()}`);
+  try {
+    const BASE_URL = getBaseUrl();
+    const params = new URLSearchParams({
+      pageNumber: String(pageNumber),
+      pageSize: String(pageSize),
+    });
+    return authFetch<PaginatedResponse<Booking>>(`${BASE_URL}/bookings/user/${userId}?${params.toString()}`);
+  } catch (error) {
+    console.error('GetUserBookings API error:', error);
+    throw error;
+  }
 }
 
 export async function cancelBooking(bookingId: string, userId: string): Promise<CancelBookingResponse> {
-  const BASE_URL = getBaseUrl();
-  return authFetch<CancelBookingResponse>(`${BASE_URL}/bookings/${bookingId}/cancel`, {
-    method: "DELETE",
-    body: JSON.stringify({ userId }),
-  });
+  try {
+    const BASE_URL = getBaseUrl();
+    return authFetch<CancelBookingResponse>(`${BASE_URL}/bookings/${bookingId}/cancel`, {
+      method: "DELETE",
+      body: JSON.stringify({ userId }),
+    });
+  } catch (error) {
+    console.error('CancelBooking API error:', error);
+    throw error;
+  }
 }

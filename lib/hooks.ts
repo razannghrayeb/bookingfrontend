@@ -16,7 +16,7 @@ export function useResources(type?: ResourceType, pageSize = 100) {
       dedupingInterval: 30000,
       errorRetryCount: 2,
       onError: (err) => {
-        console.log("[v0] useResources error for type", type, err);
+        console.log("  useResources error for type", type, err);
       },
     }
   );
@@ -77,7 +77,7 @@ export function useAvailability(type: ResourceType | null, dateStr: string | nul
       revalidateOnFocus: false,
       dedupingInterval: 10000,
       errorRetryCount: 2,
-      onError: (err) => console.log("[v0] useAvailability error:", err),
+      onError: (err) => console.log("  useAvailability error:", err),
     }
   );
 }
@@ -91,7 +91,7 @@ export function useUserBookings(userId: string | null, pageNumber = 1, pageSize 
       dedupingInterval: 5000,
       errorRetryCount: 2,
       onError: (err) => {
-        console.log("[v0] useUserBookings error:", err);
+        console.log("  useUserBookings error:", err);
       },
     }
   );

@@ -42,10 +42,7 @@ function formatDate(date: Date): string {
   });
 }
 
-/**
- * Build a UTC ISO string for a given date + hour.
- * Treats the displayed hour as UTC (consistent with the grid).
- */
+
 function toUtcIso(date: Date, hour: number): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -73,11 +70,11 @@ export function BookingDialog({
     const startUtc = toUtcIso(date, hour);
     const endUtc = toUtcIso(date, hour + 1);
 
-    console.log("[v0] Creating booking:", { resourceId: resource.id, userId, startUtc, endUtc });
+    console.log("Creating booking:", { resourceId: resource.id, userId, startUtc, endUtc });
 
     try {
       const result = await createBooking(resource.id, userId, startUtc, endUtc);
-      console.log("[v0] Booking created:", result);
+      console.log("  Booking created:", result);
       toast.success("Booking confirmed!", {
         description: `${resource.name} - ${formatHour(hour)} to ${formatHour(hour + 1)}`,
       });
@@ -86,9 +83,15 @@ export function BookingDialog({
       invalidateResources(resource.type);
       onOpenChange(false);
     } catch (err) {
-      console.log("[v0] Booking error:", err);
+      console.log("  Booking error:", err);
       if (isApiError(err)) {
-        setError(err.detail || err.title);
+        if (err.status === 400) {
+          setError("failed to fetch data");
+        } else if (err.status === 500) {
+          setError("Server error occurred. Please try again later.");
+        } else {
+          setError(err.detail || err.title);
+        }
       } else {
         setError("Failed to create booking. Please try again.");
       }
